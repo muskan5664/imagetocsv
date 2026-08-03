@@ -98,7 +98,6 @@
   --grid-line: oklch(0.28 0.02 252);
 }
 
-
 .dark {
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
@@ -211,4 +210,3 @@
     ),
     radial-gradient(45rem 28rem at 100% 0%, oklch(0.6 0.16 250 / 0.22), transparent 70%);
 }
-

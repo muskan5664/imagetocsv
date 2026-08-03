@@ -118,51 +118,14 @@ async function callGemini(key: string, system: string, prompt: string, image: st
   const json = (await res.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
-  return (json.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.text ?? "")
-    .join("");
-}
-
-/** Lovable AI Gateway fallback. */
-async function callGateway(key: string, system: string, prompt: string, image: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.6-flash",
-      messages: [
-        { role: "system", content: system },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: image } },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (res.status === 429) throw new Error("Rate limit reached. Please try again in a moment.");
-  if (res.status === 402) throw new Error("AI credits exhausted. Add credits to continue.");
-  if (!res.ok) throw new Error(`Extraction failed (${res.status}).`);
-
-  const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return json.choices?.[0]?.message?.content ?? "";
+  return (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
 }
 
 export const imageToCsv = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => Input.parse(input))
+  .validator((input: unknown) => Input.parse(input))
   .handler(async ({ data }) => {
     const geminiKey = process.env["GEMINI_API_KEY"];
-    const lovableKey = process.env["LOVABLE_API_KEY"];
-    if (!geminiKey && !lovableKey) throw new Error("AI is not configured.");
+    if (!geminiKey) throw new Error("Gemini API key is not configured.");
 
     const system =
       data.mode === "purchase-bill"
@@ -177,26 +140,13 @@ export const imageToCsv = createServerFn({ method: "POST" })
       (data.hint ? ` Extra instruction: ${data.hint}` : "");
 
     let raw = "";
-    let source: "own-key" | "lovable" = "own-key";
+    let source: "own-key" = "own-key";
 
     if (geminiKey) {
-      try {
-        raw = await callGemini(geminiKey, system, prompt, data.image);
-      } catch (err) {
-        console.error("Own Gemini key failed, falling back to Lovable AI:", err);
-        if (!lovableKey) {
-          throw err instanceof Error ? err : new Error("Extraction failed.");
-        }
-      }
-    }
-
-    if (!raw.trim() && lovableKey) {
-      raw = await callGateway(lovableKey, system, prompt, data.image);
-      source = "lovable";
+      raw = await callGemini(geminiKey, system, prompt, data.image);
     }
 
     const csv = stripFences(raw);
     if (!csv) throw new Error("No table could be read from that image.");
     return { csv, source };
   });
-

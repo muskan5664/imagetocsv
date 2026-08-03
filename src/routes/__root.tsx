@@ -10,7 +10,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -37,9 +36,7 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+  useEffect(() => {}, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -78,17 +75,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Bill to CSV — Purchase bill photos into import-ready rows" },
-      { name: "description", content: "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Bill to CSV — Purchase bill photos into import-ready rows" },
-      { property: "og:description", content: "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import." },
+      {
+        name: "description",
+        content:
+          "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import.",
+      },
+      {
+        property: "og:title",
+        content: "Bill to CSV — Purchase bill photos into import-ready rows",
+      },
+      {
+        property: "og:description",
+        content:
+          "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Bill to CSV — Purchase bill photos into import-ready rows" },
-      { name: "twitter:description", content: "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/167f6ed1-8a93-4ffc-9556-f0c42ccc6e72/id-preview-05972f72--b9f7d7b6-9fbd-45e8-93a1-a2ca1733704f.lovable.app-1785760308628.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/167f6ed1-8a93-4ffc-9556-f0c42ccc6e72/id-preview-05972f72--b9f7d7b6-9fbd-45e8-93a1-a2ca1733704f.lovable.app-1785760308628.png" },
+      {
+        name: "twitter:title",
+        content: "Bill to CSV — Purchase bill photos into import-ready rows",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import.",
+      },
     ],
     links: [
       {

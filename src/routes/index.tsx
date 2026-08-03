@@ -13,7 +13,10 @@ export const Route = createFileRoute("/")({
         content:
           "Photograph a GST purchase bill and get a CSV with product, pack, company, batch, expiry, qty, rates, MRP and GST ready to import.",
       },
-      { property: "og:title", content: "Bill to CSV — Purchase bill photos into import-ready rows" },
+      {
+        property: "og:title",
+        content: "Bill to CSV — Purchase bill photos into import-ready rows",
+      },
       {
         property: "og:description",
         content:
@@ -21,7 +24,6 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-
     ],
   }),
   component: Index,
@@ -64,16 +66,125 @@ function parseCsv(csv: string): string[][] {
 type Mode = "purchase-bill" | "auto" | "aman-medical";
 
 const AMAN_EXAMPLE: string[][] = [
-  ["Pack.","Product","HSN","LOT S","QTY","FREE","MFR","Batch.","Exp.","M.R.P.","Rate","Dis%","GST%","Amount","NET Rate"],
-  ["1 VAI","PAN IV.40 INJ","3004","10+15","25","0","ALKEM","25740123","11/27","53.90","16.43","3.00","5.0","410.75","16.73"],
-  ["15 TA","DIGENE TAB ORANGE.","3004","9+1","9","0","ABBOT","862003D7","02/29","30.10","20.66","3.00","5.0","185.94","21.04"],
-  ["100 m","METROGYL IV INJ. 100ML","3004","","22","0","UNIQU","VIIW26052","01/29","22.00","14.50","0.00","5.0","319.00","15.23"],
+  [
+    "Pack.",
+    "Product",
+    "HSN",
+    "LOT S",
+    "QTY",
+    "FREE",
+    "MFR",
+    "Batch.",
+    "Exp.",
+    "M.R.P.",
+    "Rate",
+    "Dis%",
+    "GST%",
+    "Amount",
+    "NET Rate",
+  ],
+  [
+    "1 VAI",
+    "PAN IV.40 INJ",
+    "3004",
+    "10+15",
+    "25",
+    "0",
+    "ALKEM",
+    "25740123",
+    "11/27",
+    "53.90",
+    "16.43",
+    "3.00",
+    "5.0",
+    "410.75",
+    "16.73",
+  ],
+  [
+    "15 TA",
+    "DIGENE TAB ORANGE.",
+    "3004",
+    "9+1",
+    "9",
+    "0",
+    "ABBOT",
+    "862003D7",
+    "02/29",
+    "30.10",
+    "20.66",
+    "3.00",
+    "5.0",
+    "185.94",
+    "21.04",
+  ],
+  [
+    "100 m",
+    "METROGYL IV INJ. 100ML",
+    "3004",
+    "",
+    "22",
+    "0",
+    "UNIQU",
+    "VIIW26052",
+    "01/29",
+    "22.00",
+    "14.50",
+    "0.00",
+    "5.0",
+    "319.00",
+    "15.23",
+  ],
 ];
 
 const BILL_EXAMPLE: string[][] = [
-  ["Product Name","Pack","Company","Batch","Expiry","Qty","Free","Pur Rate","Dis %","Net Rate","Sale Rate","MRP","GST%","Amount"],
-  ["LIVZYME FORTE 150ML","1X150ML","ALKEM","AB1234","11/27","10","1","82.50","10","74.25","94.88","120.00","12","742.50"],
-  ["MONTINA L TAB","10X10","ARISTO","SPA260052","12/27","5","0","57.86","3","56.12","66.54","84.37","5","280.60"],
+  [
+    "Product Name",
+    "Pack",
+    "Company",
+    "Batch",
+    "Expiry",
+    "Qty",
+    "Free",
+    "Pur Rate",
+    "Dis %",
+    "Net Rate",
+    "Sale Rate",
+    "MRP",
+    "GST%",
+    "Amount",
+  ],
+  [
+    "LIVZYME FORTE 150ML",
+    "1X150ML",
+    "ALKEM",
+    "AB1234",
+    "11/27",
+    "10",
+    "1",
+    "82.50",
+    "10",
+    "74.25",
+    "94.88",
+    "120.00",
+    "12",
+    "742.50",
+  ],
+  [
+    "MONTINA L TAB",
+    "10X10",
+    "ARISTO",
+    "SPA260052",
+    "12/27",
+    "5",
+    "0",
+    "57.86",
+    "3",
+    "56.12",
+    "66.54",
+    "84.37",
+    "5",
+    "280.60",
+  ],
 ];
 
 function Index() {
@@ -82,15 +193,13 @@ function Index() {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("table");
   const [csv, setCsv] = useState<string | null>(null);
-  const [source, setSource] = useState<"own-key" | "lovable" | null>(null);
+  const [source, setSource] = useState<"own-key" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [mode, setMode] = useState<Mode>("auto");
 
-
   const rows = useMemo(() => (csv ? parseCsv(csv) : []), [csv]);
-
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -124,7 +233,6 @@ function Index() {
       setLoading(false);
     }
   }, [preview, extract, mode]);
-
 
   const download = useCallback(() => {
     if (!csv) return;
@@ -213,16 +321,16 @@ function Index() {
                 <table className="w-full border-collapse text-xs">
                   <thead className="bg-secondary/70">
                     <tr>
-                      {(mode === "aman-medical"
-                        ? AMAN_EXAMPLE
-                        : BILL_EXAMPLE)[0]!.map((cell, i) => (
-                        <th
-                          key={i}
-                          className="whitespace-nowrap border-b border-border px-3 py-2 text-left font-medium"
-                        >
-                          {cell}
-                        </th>
-                      ))}
+                      {(mode === "aman-medical" ? AMAN_EXAMPLE : BILL_EXAMPLE)[0]!.map(
+                        (cell, i) => (
+                          <th
+                            key={i}
+                            className="whitespace-nowrap border-b border-border px-3 py-2 text-left font-medium"
+                          >
+                            {cell}
+                          </th>
+                        ),
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -309,7 +417,6 @@ function Index() {
           )}
         </section>
 
-
         {rows.length > 0 && (
           <section className="panel glow-ring mt-8 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
@@ -324,13 +431,9 @@ function Index() {
                         ? "border-primary/40 bg-primary/10 text-primary"
                         : "border-border bg-muted text-muted-foreground"
                     }`}
-                    title={
-                      source === "own-key"
-                        ? "Extracted with your own Gemini API key"
-                        : "Your key was unavailable, so Lovable AI was used as fallback"
-                    }
+                    title={source === "own-key" ? "Extracted with your own Gemini API key" : ""}
                   >
-                    {source === "own-key" ? "Your key" : "Lovable AI"}
+                    {source === "own-key" ? "Your key" : ""}
                   </span>
                 )}
               </div>
@@ -387,4 +490,3 @@ function Index() {
     </>
   );
 }
-
