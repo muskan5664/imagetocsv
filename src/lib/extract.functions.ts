@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const Input = z.object({
   image: z.string().min(20).max(12_000_000),
-  hint: z.string().max(300).optional(),
+  hint: z.string().max(600).optional(),
   mode: z.enum(["auto", "purchase-bill", "aman-medical"]).optional(),
 });
 
