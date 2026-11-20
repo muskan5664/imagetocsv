@@ -194,6 +194,7 @@ function Index() {
   const [fileName, setFileName] = useState<string>("table");
   const [csv, setCsv] = useState<string | null>(null);
   const [source, setSource] = useState<"own-key" | null>(null);
+  const [modelUsed, setModelUsed] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -213,6 +214,7 @@ function Index() {
     setError(null);
     setCsv(null);
     setSource(null);
+    setModelUsed(null);
     setFileName(file.name.replace(/\.[^.]+$/, "") || "table");
     const reader = new FileReader();
     reader.onload = () => setPreview(String(reader.result));
@@ -224,9 +226,15 @@ function Index() {
     setLoading(true);
     setError(null);
     try {
-      const result = await extract({ data: { image: preview, mode } });
+      const result = await extract({
+        data: {
+          image: preview,
+          mode,
+        },
+      });
       setCsv(result.csv);
       setSource(result.source);
+      setModelUsed(result.model ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -248,6 +256,7 @@ function Index() {
     setPreview(null);
     setCsv(null);
     setSource(null);
+    setModelUsed(null);
     setError(null);
   };
 
@@ -411,9 +420,14 @@ function Index() {
           )}
 
           {error && (
-            <p className="mt-5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
-              {error}
-            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+              <p className="min-w-0 flex-1">{error}</p>
+              {preview && (
+                <Button variant="secondary" size="sm" onClick={run} disabled={loading}>
+                  {loading ? "Retrying…" : "Try again"}
+                </Button>
+              )}
+            </div>
           )}
         </section>
 
@@ -431,9 +445,13 @@ function Index() {
                         ? "border-primary/40 bg-primary/10 text-primary"
                         : "border-border bg-muted text-muted-foreground"
                     }`}
-                    title={source === "own-key" ? "Extracted with your own Gemini API key" : ""}
+                    title={
+                      source === "own-key"
+                        ? `Extracted with Gemini API${modelUsed ? ` (${modelUsed})` : ""}`
+                        : ""
+                    }
                   >
-                    {source === "own-key" ? "Your key" : ""}
+                    {source === "own-key" ? "Gemini API" : ""}
                   </span>
                 )}
               </div>

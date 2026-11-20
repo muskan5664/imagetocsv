@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { GoogleGenAI } from "@google/genai";
 
 const Input = z.object({
   image: z.string().min(20).max(12_000_000),
@@ -85,40 +86,58 @@ function splitDataUrl(dataUrl: string) {
   return { mimeType: match[1]!, data: match[2]! };
 }
 
-/** Direct Google Generative Language API using the user's own Gemini key. */
-async function callGemini(key: string, system: string, prompt: string, image: string) {
-  const parts = splitDataUrl(image);
-  if (!parts) throw new Error("Unsupported image format.");
+const MODEL_FALLBACK_CHAIN = ["gemini-4-hydrogen", "gemini-3.1-flash-lite"] as const;
 
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: parts.mimeType, data: parts.data } },
-            ],
-          },
-        ],
-      }),
-    },
-  );
+function getErrorStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== "object") return undefined;
+  const record = err as Record<string, unknown>;
+  if (typeof record["status"] === "number") return record["status"];
+  if (typeof record["code"] === "number") return record["code"];
+  const msg = err instanceof Error ? err.message : String(err);
+  const match = /\b(400|401|403|404|429|500|502|503|504)\b/.exec(msg);
+  return match ? Number(match[1]) : undefined;
+}
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
+function isTransientError(err: unknown): boolean {
+  const status = getErrorStatus(err);
+  if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
+    return true;
   }
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("unavailable") ||
+    msg.includes("high demand") ||
+    msg.includes("overloaded") ||
+    msg.includes("temporarily") ||
+    msg.includes("timeout") ||
+    msg.includes("fetch failed")
+  );
+}
 
-  const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  return (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+function formatGeminiError(err: unknown): string {
+  const status = getErrorStatus(err);
+  const rawMsg = err instanceof Error ? err.message : String(err);
+  const lower = rawMsg.toLowerCase();
+
+  if (status === 503 || lower.includes("unavailable") || lower.includes("high demand")) {
+    return "Gemini is currently experiencing high demand (503). Automatic retries and fallback also hit peak load — please try again in a few seconds.";
+  }
+  if (status === 429 || lower.includes("resource_exhausted")) {
+    return "Gemini API rate limit reached (429). Please wait a moment and try again, or check your quota in Settings > Secrets.";
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    lower.includes("permission_denied") ||
+    lower.includes("api_key_invalid")
+  ) {
+    return "Gemini API key was rejected. Please verify your API key in Settings > Secrets.";
+  }
+  return rawMsg;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export const imageToCsv = createServerFn({ method: "POST" })
@@ -133,20 +152,79 @@ export const imageToCsv = createServerFn({ method: "POST" })
         : data.mode === "aman-medical"
           ? AMAN_SYSTEM
           : SYSTEM;
+
     const prompt =
       (data.mode === "purchase-bill" || data.mode === "aman-medical"
         ? "Extract every product line of this purchase bill as CSV using the required columns."
         : "Extract the table in this image as CSV.") +
       (data.hint ? ` Extra instruction: ${data.hint}` : "");
 
-    let raw = "";
-    let source: "own-key" = "own-key";
+    const parts = splitDataUrl(data.image);
+    if (!parts) throw new Error("Unsupported image format.");
 
-    if (geminiKey) {
-      raw = await callGemini(geminiKey, system, prompt, data.image);
+    const ai = new GoogleGenAI({
+      apiKey: geminiKey,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+
+    const imagePart = {
+      inlineData: {
+        mimeType: parts.mimeType,
+        data: parts.data,
+      },
+    };
+    const textPart = {
+      text: prompt,
+    };
+
+    let raw = "";
+    let usedModel: string = MODEL_FALLBACK_CHAIN[0];
+    let lastError: unknown = null;
+
+    for (const model of MODEL_FALLBACK_CHAIN) {
+      const maxAttempts = 3;
+      let succeeded = false;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: { parts: [imagePart, textPart] },
+            config: {
+              systemInstruction: system,
+            },
+          });
+          raw = response.text || "";
+          usedModel = model;
+          succeeded = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (!isTransientError(err)) {
+            throw new Error(formatGeminiError(err));
+          }
+          if (attempt < maxAttempts) {
+            const delayMs = Math.min(1000 * 2 ** (attempt - 1), 4000);
+            await sleep(delayMs);
+          }
+        }
+      }
+
+      if (succeeded) break;
     }
+
+    if (!raw && lastError) {
+      throw new Error(formatGeminiError(lastError));
+    }
+
+    const source = "own-key" as const;
 
     const csv = stripFences(raw);
     if (!csv) throw new Error("No table could be read from that image.");
-    return { csv, source };
+
+    return { csv, source, model: usedModel };
   });
